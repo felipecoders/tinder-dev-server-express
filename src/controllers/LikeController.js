@@ -1,9 +1,8 @@
 const Dev = require("../models/Dev");
+const RealTime = require("../models/RealTime");
 
 module.exports = {
   async store(req, res) {
-    console.log(req.io);
-    console.log(req.connectedUsers);
     try {
       const { devId } = req.params;
       const { user } = req.headers;
@@ -11,20 +10,28 @@ module.exports = {
       const loggedDev = await Dev.findById(user);
       const targetDev = await Dev.findById(devId);
 
+      // evitando bugs
       if (!targetDev) {
         return res.status(400).json({ error: "Dev not exists" });
       }
 
+      // caso o target ja tenha dado like neste usuario
       if (targetDev.likes.includes(loggedDev._id)) {
-        const loggedSocket = req.connectedUsers[user];
-        const targetSocket = req.connectedUsers[devId];
+        // busca os registros do socket salvos
+        const loggedSocket = await RealTime.findOne({ user });
+        const targetSocket = await RealTime.findOne({ user: devId });
 
-        if (loggedSocket) {
-          req.io.to(loggedSocket).emit("match", targetDev);
-        }
+        // este usuario claramente esta logado
+        req.io.to(loggedSocket.connection).emit("match", [targetDev]);
 
-        if (targetSocket) {
-          req.io.to(targetSocket).emit("match", loggedDev);
+        // caso o target esteja conectado ele envia
+        // caso ele nao esteja conectado sera salvo nos matchs
+        // para quando ele logar receber as notificacoes
+        if (targetSocket && targetSocket.connection) {
+          req.io.to(targetSocket.connection).emit("match", [loggedDev]);
+        } else {
+          targetSocket.matchs.push(user);
+          await targetSocket.save();
         }
       }
 

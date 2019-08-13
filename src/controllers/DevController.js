@@ -1,4 +1,5 @@
 const axios = require("axios");
+const bcrypt = require("bcryptjs");
 const Dev = require("../models/Dev");
 
 module.exports = {
@@ -31,12 +32,20 @@ module.exports = {
 
   async store(req, res) {
     try {
-      const { username } = req.body;
+      const { username, password } = req.body;
 
       // check user exists
       const userExists = await Dev.findOne({ user: username });
       if (userExists) {
-        return res.json(userExists);
+        const correctPassword = bcrypt.compare(password, userExists.password);
+        // remove password
+        userExists.password = undefined;
+
+        if (correctPassword) {
+          return res.json(userExists);
+        } else {
+          return res.status(401).json({ message: "Failed login" });
+        }
       }
 
       const { data } = await axios.get(
@@ -45,7 +54,15 @@ module.exports = {
 
       const { name, bio, avatar_url: avatar } = data;
 
-      const dev = await Dev.create({ name, user: username, bio, avatar });
+      const hashPassword = await bcrypt.hash(password, 10);
+
+      const dev = await Dev.create({
+        name,
+        user: username,
+        bio,
+        avatar,
+        password: hashPassword
+      });
 
       return res.json(dev);
     } catch (e) {
