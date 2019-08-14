@@ -6,8 +6,14 @@ const DevSchema = new Schema(
       type: String,
       required: true
     },
+    email: {
+      type: String,
+      required: true,
+      unique: true
+    },
     user: {
       type: String,
+      unique: true,
       required: true
     },
     password: {

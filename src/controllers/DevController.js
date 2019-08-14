@@ -1,4 +1,3 @@
-const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const Dev = require("../models/Dev");
 
@@ -36,35 +35,15 @@ module.exports = {
 
       // check user exists
       const userExists = await Dev.findOne({ user: username });
-      if (userExists) {
-        const correctPassword = bcrypt.compare(password, userExists.password);
-        // remove password
-        userExists.password = undefined;
+      const correctPassword = bcrypt.compare(password, userExists.password);
+      // remove password
+      userExists.password = undefined;
 
-        if (correctPassword) {
-          return res.json(userExists);
-        } else {
-          return res.status(401).json({ message: "Failed login" });
-        }
+      if (correctPassword) {
+        return res.json(userExists);
+      } else {
+        return res.status(401).json({ message: "Failed login" });
       }
-
-      const { data } = await axios.get(
-        `https://api.github.com/users/${username}`
-      );
-
-      const { name, bio, avatar_url: avatar } = data;
-
-      const hashPassword = await bcrypt.hash(password, 10);
-
-      const dev = await Dev.create({
-        name,
-        user: username,
-        bio,
-        avatar,
-        password: hashPassword
-      });
-
-      return res.json(dev);
     } catch (e) {
       console.error(e);
       return res
